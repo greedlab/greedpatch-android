@@ -16,9 +16,10 @@ public class MD5Util {
         return MD5Util.getFileHash(file, "MD5");
     }
 
+    @SuppressWarnings("WeakerAccess")
     public static String getFileHash(File file, String hashType) {
         InputStream ins = null;
-        MessageDigest md5 = null;
+        MessageDigest md5;
         try {
             md5 = MessageDigest.getInstance(hashType);
             ins = new FileInputStream(file);

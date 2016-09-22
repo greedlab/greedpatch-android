@@ -12,9 +12,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -26,55 +24,67 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import okio.BufferedSink;
+import okio.Okio;
 
 /**
  * Created by Bell on 16/9/14.
  */
 public class Greedpatch {
-    final private static String PREFERENCE_KEY = "preference_key";
-    final private static String PROJECT_VERSION_KEY = "project_version_key";
-    final private static String PATCH_VERSION_KEY = "patch_version_key";
-    final private static String PATCH_FILE_NAME_KEY = "patch_file_name_key";
+    private static final String PREFERENCE_KEY = "preference_key";
+    private static final String PROJECT_VERSION_KEY = "project_version_key";
+    private static final String PATCH_VERSION_KEY = "patch_version_key";
+    private static final String PATCH_FILE_NAME_KEY = "patch_file_name_key";
 
-    public static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+    public String serverAddress;
+    public String projectId;
+    public String token;
 
-    public static String serverAddress = "http://patchapi.greedlab.com";
-    public static String projectId = null;
-    public static String token = null;
-
-    private static Greedpatch sInstance;
-
-    private Context mContext;
     private String projectVersion;
     private int patchVersion;
     private String patchFileName;
 
-    private void setProjectVersion(String projectVersion) {
-        SharedPreferences.Editor editor = getPreferencesEditor();
+    private static Greedpatch sInstance;
+
+    private void setProjectVersion(Context context, String projectVersion) {
+        SharedPreferences.Editor editor = getPreferencesEditor(context);
         editor.putString(PROJECT_VERSION_KEY, projectVersion);
         editor.commit();
 
         this.projectVersion = projectVersion;
     }
 
-    public void setPatchVersion(int patchVersion) {
-        SharedPreferences.Editor editor = getPreferencesEditor();
+    public String getProjectVersion() {
+        return projectVersion;
+    }
+
+    private void setPatchVersion(Context context, int patchVersion) {
+        SharedPreferences.Editor editor = getPreferencesEditor(context);
         editor.putInt(PATCH_VERSION_KEY, patchVersion);
         editor.commit();
         this.patchVersion = patchVersion;
     }
 
-    public void setPatchFileName(String patchFileName) {
-        SharedPreferences.Editor editor = getPreferencesEditor();
+    public int getPatchVersion() {
+        return patchVersion;
+    }
+
+    private void setPatchFileName(Context context, String patchFileName) {
+        SharedPreferences.Editor editor = getPreferencesEditor(context);
         editor.putString(PATCH_FILE_NAME_KEY, patchFileName);
         editor.commit();
 
         this.patchFileName = patchFileName;
     }
 
+    public String getPatchFileName() {
+        return patchFileName;
+    }
+
     private Greedpatch(Context context) {
-        this.mContext = context;
-        SharedPreferences sharedPref = getPreferences();
+        SharedPreferences sharedPref = getPreferences(context);
+        this.serverAddress = "http://patchapi.greedlab.com";
+
         this.projectVersion = sharedPref.getString(PROJECT_VERSION_KEY, null);
         this.patchVersion = sharedPref.getInt(PATCH_VERSION_KEY, 0);
         this.patchFileName = sharedPref.getString(PATCH_FILE_NAME_KEY, null);
@@ -83,6 +93,7 @@ public class Greedpatch {
     public static synchronized Greedpatch getInstance(Context context) {
         if (sInstance == null) {
             sInstance = new Greedpatch(context);
+//            sInstance = new Greedpatch(context.getApplicationContext());
         }
         return sInstance;
     }
@@ -90,25 +101,28 @@ public class Greedpatch {
     /**
      * request new patch
      */
-    public void requestPatch() {
+    public void requestPatch(final Context context) {
         if (this.projectId == null) {
-            System.out.println("projectId can not be null");
+            Log.e("greedpatch","projectId can not be null");
             return;
         }
         if (this.serverAddress == null) {
-            System.out.println("serverAddress can not be null");
+            Log.e("greedpatch","serverAddress can not be null");
             return;
         }
         if (this.token == null) {
-            System.out.println("token can not be null");
+            Log.e("greedpatch","token can not be null");
             return;
         }
 
         // url
         final String url = serverAddress + "/patches/check";
 
+        // MediaType
+        MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+
         // header
-        final Map<String, String> headersMap = new HashMap<String, String>();
+        final Map<String, String> headersMap = new HashMap<>();
         headersMap.put("Content-Type", "application/json; charset=utf-8");
         headersMap.put("Accept", "application/vnd.greedlab+json;version=1.0");
         headersMap.put("Authorization", "Bearer " + this.token);
@@ -116,7 +130,7 @@ public class Greedpatch {
         // body
         final JSONObject jsonObject = new JSONObject();
         try {
-            String currentVersion = getVersionName();
+            String currentVersion = getVersionName(context);
             if (currentVersion.equals(this.projectVersion) && this.patchVersion != 0) {
                 jsonObject.put("patch_version", this.patchVersion);
             }
@@ -140,7 +154,7 @@ public class Greedpatch {
         client.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-                Log.d("greedpatch", "request patch failed");
+                Log.e("greedpatch", "request patch failed");
             }
 
             @Override
@@ -149,7 +163,7 @@ public class Greedpatch {
                 if (code == 200) {
                     String stringBody = response.body().string();
                     Log.d("greedpatch", stringBody);
-                    JSONObject body = null;
+                    JSONObject body;
                     try {
                         body = new JSONObject(stringBody);
                         String patchUrl = body.getString("patch_url");
@@ -173,7 +187,7 @@ public class Greedpatch {
                             filename = "patch.jar";
                         }
 
-                        File patchDir = getPatchDirectory(projectVersion, Integer.toString(patchVersion));
+                        File patchDir = getPatchDirectory(context, projectVersion, Integer.toString(patchVersion));
                         if (patchDir == null || !patchDir.exists()) {
                             Log.e("greedpatch", "make patch directory failed!");
                             return;
@@ -189,18 +203,19 @@ public class Greedpatch {
                                     Log.e("greedpatch", "wrong hash: " + patchHash + " to " + hash);
                                     return;
                                 }
-                                setPatchFileName(finalFilename);
-                                setProjectVersion(projectVersion);
-                                setPatchVersion(patchVersion);
+                                setPatchFileName(context, finalFilename);
+                                setProjectVersion(context, projectVersion);
+                                setPatchVersion(context, patchVersion);
+                                Log.i("greedpatch", "need to patch");
                             }
                         });
                     } catch (JSONException e) {
                         e.printStackTrace();
                     }
                 } else if (code == 204) {
-                    Log.d("greedpatch", "no need to patch");
+                    Log.i("greedpatch", "no need to patch");
                 } else {
-                    Log.d("greedpatch", "request patch failed");
+                    Log.e("greedpatch", "request patch failed");
                 }
             }
         });
@@ -211,15 +226,12 @@ public class Greedpatch {
      *
      * @return
      */
-    public Boolean needPatch() {
+    private Boolean needPatch(Context context) {
         if (this.projectVersion == null || this.patchVersion == 0) {
             return false;
         }
-        String currentVersion = getVersionName();
-        if (currentVersion.equals(this.projectVersion)) {
-            return true;
-        }
-        return false;
+        String currentVersion = getVersionName(context);
+        return currentVersion.equals(this.projectVersion);
     }
 
     /***
@@ -227,17 +239,16 @@ public class Greedpatch {
      *
      * @return
      */
-    public File getPatchFile() {
-        File patchDir = getPatchDirectory();
+    public File getPatchFile(Context context) {
+        File patchDir = getPatchDirectory(context);
         if (patchDir == null || this.patchFileName == null) {
             return null;
         }
-        File file = new File(patchDir, this.patchFileName);
-        return file;
+        return new File(patchDir, this.patchFileName);
     }
 
     public interface DownloadCallBack {
-        public void downloadSuccess();
+        void downloadSuccess();
     }
 
     private void downloadPatch(String downloadUrl, final File file, final DownloadCallBack callBack) {
@@ -259,40 +270,10 @@ public class Greedpatch {
 
             @Override
             public void onResponse(Call call, Response response) throws IOException {
-                InputStream is = null;
-                byte[] buf = new byte[2048];
-                int len = 0;
-                FileOutputStream fos = null;
-                try {
-                    is = response.body().byteStream();
-                    long total = response.body().contentLength();
-                    fos = new FileOutputStream(file);
-                    long sum = 0;
-                    while ((len = is.read(buf)) != -1) {
-                        fos.write(buf, 0, len);
-                        sum += len;
-                        int progress = (int) (sum * 1.0f / total * 100);
-                        Log.d("greedpatch", "progress=" + progress);
-                    }
-                    fos.flush();
-                    Log.d("greedpatch", "download successful!");
-                    callBack.downloadSuccess();
-                } catch (Exception e) {
-                    Log.d("greedpatch", "download failed!");
-                } finally {
-                    try {
-                        if (is != null)
-                            is.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    try {
-                        if (fos != null)
-                            fos.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
+                BufferedSink sink = Okio.buffer(Okio.sink(file));
+                sink.writeAll(response.body().source());
+                sink.close();
+                callBack.downloadSuccess();
             }
         });
     }
@@ -302,28 +283,32 @@ public class Greedpatch {
      *
      * @return
      */
-    private File getPatchDirectory() {
-        if (!needPatch()) {
+    private File getPatchDirectory(Context context) {
+        if (!needPatch(context)) {
             return null;
         }
-        return getPatchDirectory(this.projectVersion, String.valueOf(this.patchVersion));
+        return getPatchDirectory(context, this.projectVersion, String.valueOf(this.patchVersion));
     }
 
     /**
      * get patch directory
      *
-     * @param projectVersion
-     * @param patchVersion
+     * @param projectVersion project version
+     * @param patchVersion patch version
      * @return
      */
-    private File getPatchDirectory(String projectVersion, String patchVersion) {
+    private File getPatchDirectory(Context context, String projectVersion, String patchVersion) {
         if (projectVersion == null && patchVersion == null) {
             return null;
         }
         String child = "patch/" + projectVersion + "/" + patchVersion;
-        File directory = new File(this.mContext.getExternalFilesDir(null), child);
+        File directory = new File(context.getExternalFilesDir(null), child);
         if (!directory.exists()) {
-            directory.mkdirs();
+            if (directory.mkdirs()) {
+                return directory;
+            } else {
+                return null;
+            }
         }
         return directory;
     }
@@ -333,11 +318,11 @@ public class Greedpatch {
      *
      * @return
      */
-    private String getVersionName() {
+    private String getVersionName(Context context) {
         String versionName = "1.0.0";
-        PackageManager packageManager = this.mContext.getPackageManager();
+        PackageManager packageManager = context.getPackageManager();
         try {
-            PackageInfo packageInfo = packageManager.getPackageInfo(this.mContext.getPackageName(), 0);
+            PackageInfo packageInfo = packageManager.getPackageInfo(context.getPackageName(), 0);
             versionName = packageInfo.versionName;
         } catch (Exception e) {
             e.printStackTrace();
@@ -350,8 +335,8 @@ public class Greedpatch {
      *
      * @return
      */
-    private SharedPreferences getPreferences() {
-        return this.mContext.getSharedPreferences(
+    private SharedPreferences getPreferences(Context context) {
+        return context.getSharedPreferences(
                 PREFERENCE_KEY, Context.MODE_PRIVATE);
     }
 
@@ -360,9 +345,8 @@ public class Greedpatch {
      *
      * @return
      */
-    private SharedPreferences.Editor getPreferencesEditor() {
-        SharedPreferences sharedPref = getPreferences();
+    private SharedPreferences.Editor getPreferencesEditor(Context context) {
+        SharedPreferences sharedPref = getPreferences(context);
         return sharedPref.edit();
     }
-
 }

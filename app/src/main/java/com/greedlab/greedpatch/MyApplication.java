@@ -17,11 +17,12 @@ public class MyApplication extends Application {
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
 
-        File file = Greedpatch.getInstance(this).getPatchFile();
+        File file = Greedpatch.getInstance(this).getPatchFile(this);
         if (file != null && file.exists()) {
-            Log.d("greedpatch", "start patch");
+            Log.d("greedpatch", "start local patch");
+            // Use other library to patch, eg: [RocooFix](https://github.com/dodola/RocooFix)
         } else {
-            Log.d("greedpatch", "no need to patch");
+            Log.d("greedpatch", "no local patch");
         }
     }
 }

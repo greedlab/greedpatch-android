@@ -1,14 +1,20 @@
+
+plugins {
+    id 'com.jfrog.bintray' version '1.7'
+}
+
 apply plugin: 'com.android.library'
 
+//noinspection GroovyMissingReturnStatement,GroovyMissingReturnStatement
 android {
     compileSdkVersion 24
-    buildToolsVersion "24.0.0"
+    buildToolsVersion '24.0.0'
 
     defaultConfig {
         minSdkVersion 9
         targetSdkVersion 24
         versionCode 1
-        versionName "1.0"
+        versionName '1.0'
     }
     buildTypes {
         release {
@@ -21,6 +27,43 @@ android {
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
     testCompile 'junit:junit:4.12'
-    compile 'com.android.support:appcompat-v7:24.2.0'
+    compile 'com.android.support:appcompat-v7:24.2.1'
     compile 'com.squareup.okhttp3:okhttp:3.4.1'
+    compile 'com.squareup.okio:okio:1.10.0'
 }
+
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties').newDataInputStream())
+bintray {
+    user = properties.getProperty('bintray.user')
+    key = properties.getProperty('bintray.apikey')
+    configurations = ['archives']
+//    publications = ['maven']
+    pkg {
+        repo = 'maven'
+        name = 'greedpatch-android'
+        userOrg = 'greedlab'
+        websiteUrl = 'https://github.com/greedlab/greedpatch-android'
+        vcsUrl = 'https://github.com/greedlab/greedpatch-android.git'
+        licenses = ['MIT']
+        publish = true
+        version {
+            name = '1.0-Final'
+            desc = 'Android SDK for greedpatch'
+            released = new Date()
+            vcsTag = '1.0'
+            attributes = ['gradle-plugin': 'com.use.less:com.use.less.gradle:gradle-useless-plugin']
+        }
+    }
+}
+
+//publishing {
+//    publications {
+//        maven(MavenPublication) {
+//            from components.java
+//            groupId 'com.greedlab'
+//            artifactId 'greedpatch-android'
+//            version '1.0'
+//        }
+//    }
+//}

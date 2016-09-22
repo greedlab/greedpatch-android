@@ -18,6 +18,6 @@ public class MainActivity extends AppCompatActivity {
         Greedpatch.getInstance(this).projectId = "57e0db7108e1483add770ad1";
 
         // request at the end of this method
-        Greedpatch.getInstance(this).requestPatch();
+        Greedpatch.getInstance(this).requestPatch(this);
     }
 }
