@@ -34,6 +34,11 @@ dependencies {
     compile 'com.squareup.okio:okio:1.10.0'
 }
 
+version = PROJ_VERSION
+group = PROJ_GROUP
+archivesBaseName = PROJ_NAME
+
+// .pom
 install {
     repositories.mavenInstaller {
         pom.project {
@@ -46,10 +51,30 @@ install {
     }
 }
 
-version = PROJ_VERSION
-group = PROJ_GROUP
-archivesBaseName = PROJ_NAME
 
+task sourcesJar(type: Jar) {
+    classifier = 'sources'
+}
+
+task javadoc(type: Javadoc) {
+    source = android.sourceSets.main.java.srcDirs
+    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+    failOnError = false
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+// -source.jar
+// -javadoc.jar
+artifacts {
+    archives javadocJar
+    archives sourcesJar
+}
+
+// .aar
 bintray {
     user = System.getenv('BINTRAY_USER')
     key = System.getenv('BINTRAY_KEY')
