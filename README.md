@@ -9,7 +9,7 @@ Maven:
 ```
 <dependency>
   <groupId>com.greedlab</groupId>
-  <artifactId>greedpatch</artifactId>
+  <artifactId>greedpatch-android</artifactId>
   <version>1.0</version>
 </dependency>
 ```
@@ -17,7 +17,7 @@ Maven:
 or Gradle:
 
 ```
-compile 'com.greedlab:greedpatch:1.0'
+compile 'com.greedlab:greedpatch-android:1.0'
 ```
 
 ## Usage

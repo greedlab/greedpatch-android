@@ -6,6 +6,7 @@ plugins {
 apply plugin: 'com.android.library'
 apply plugin: 'maven'
 apply plugin: 'maven-publish'
+apply plugin: 'signing'
 
 //noinspection GroovyMissingReturnStatement,GroovyMissingReturnStatement
 android {
@@ -38,23 +39,7 @@ version = PROJ_VERSION
 group = PROJ_GROUP
 archivesBaseName = PROJ_NAME
 
-// .pom
-install {
-    repositories.mavenInstaller {
-        pom.project {
-            name 'greedpatch-android'
-            packaging 'aar'
-            version = PROJ_VERSION
-            artifactId = PROJ_ARTIFACTID
-            groupId = PROJ_GROUP
-        }
-    }
-}
-
-
-task sourcesJar(type: Jar) {
-    classifier = 'sources'
-}
+// -source.jar and -javadoc.jar
 
 task javadoc(type: Javadoc) {
     source = android.sourceSets.main.java.srcDirs
@@ -67,14 +52,35 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
     from javadoc.destinationDir
 }
 
-// -source.jar
-// -javadoc.jar
+task sourcesJar(type: Jar) {
+    classifier = 'sources'
+}
+
 artifacts {
     archives javadocJar
     archives sourcesJar
 }
 
-// .aar
+// Signing Artifacts
+
+signing {
+    sign configurations.archives
+}
+
+// pom.xml for jCenter
+install {
+    repositories.mavenInstaller {
+        pom.project {
+            name 'greedpatch-android'
+            packaging 'aar'
+            version = PROJ_VERSION
+            artifactId = PROJ_ARTIFACTID
+            groupId = PROJ_GROUP
+        }
+    }
+}
+
+// jCenter publish
 bintray {
     user = System.getenv('BINTRAY_USER')
     key = System.getenv('BINTRAY_KEY')
@@ -93,6 +99,57 @@ bintray {
             desc = PROJ_DESCRIPTION
             released = new Date()
             vcsTag = '1.0'
+        }
+    }
+}
+
+// maven publish
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+//            repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+//                authentication(userName: ossrhUsername, password: ossrhPassword)
+//            }
+//
+//            snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
+//                authentication(userName: ossrhUsername, password: ossrhPassword)
+//            }
+
+            pom.project {
+                name 'greedpatch-android'
+                packaging 'aar'
+                // optionally artifactId can be defined here
+                groupId = PROJ_GROUP
+                artifactId PROJ_ARTIFACTID
+                version = PROJ_VERSION
+                description 'Android SDK of greedpatch'
+                url 'https://github.com/greedlab/greedpatch-android'
+
+                scm {
+                    connection 'scm:git:git@github.com:greedlab/greedpatch-android.git'
+                    developerConnection 'scm:git:git@github.com:greedlab/greedpatch-android.git'
+                    url 'https://github.com/greedlab/greedpatch-android'
+                }
+
+                licenses {
+                    license {
+                        name 'MIT License'
+                        url 'http://www.opensource.org/licenses/mit-license.php'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id 'bell'
+                        name 'Bell Zhong'
+                        email 'bell@greedlab.com'
+                        organization 'greedlab'
+                        organizationUrl 'http://www.greedlab.com'
+                    }
+                }
+            }
         }
     }
 }
