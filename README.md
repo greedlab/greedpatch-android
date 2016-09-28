@@ -24,7 +24,7 @@ compile 'com.greedlab:greedpatch-android:1.0'
 
 ### Generate patch
 
-Use other library to generate patch, eg: [RocooFix](https://github.com/dodola/RocooFix)
+Use other library to generate patch, eg: [tinker](https://github.com/Tencent/tinker)
 
 ### upload patch
 
@@ -60,7 +60,7 @@ request remote server whether there are a new patch for current project version.
 
 ### Patch
 
-Use other library to patch, eg: [RocooFix](https://github.com/dodola/RocooFix)
+Use other library to patch, eg: [tinker](https://github.com/Tencent/tinker)
 
 ```java
 public class MyApplication extends Application {
